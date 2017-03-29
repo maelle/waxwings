@@ -27,12 +27,6 @@ get_slice <- function(longitude){
 }
 longitudes <- seq(-180, 175, by = 5)
 waxwings <- lapply(longitudes, get_slice)
-
-############################################################
-#                                                          #
-#                          clean                           ####
-#                                                          #
-############################################################
 for (i in 1:length(waxwings)){
   waxwings[[i]]$latitude <- as.numeric(waxwings[[i]]$latitude)
   waxwings[[i]]$longitude <- as.numeric(waxwings[[i]]$longitude)
@@ -40,6 +34,14 @@ for (i in 1:length(waxwings)){
 
 waxwings <- bind_rows(waxwings)
 waxwings <- unique(waxwings)
+
+readr::write_csv(waxwings, path = "uncleaned_waxwings.csv")
+############################################################
+#                                                          #
+#                          clean                           ####
+#                                                          #
+############################################################
+
 waxwings <- split(waxwings, 
                   lubridate::week(waxwings$date))
 
@@ -80,5 +82,5 @@ p <- p + geom_point(aes(longitude, latitude,
 p <- p + ylim(0, 80)
 p + theme(legend.position = "none")
 
-ggsave(p, "map.png",
+ggsave(p, file = "map.png",
        width = 8, height = 8)
