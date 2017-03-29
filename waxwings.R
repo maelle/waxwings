@@ -42,8 +42,6 @@ readr::write_csv(waxwings, path = "uncleaned_waxwings.csv")
 #                                                          #
 ############################################################
 
-waxwings <- split(waxwings, 
-                  lubridate::week(waxwings$date))
 
 cleanup <- function(df){
   print(df$date[1])
@@ -55,6 +53,11 @@ cleanup <- function(df){
     date_standardize("%Y-%m-%d") %>%
     date_missing()
 } 
+
+cleanup(waxwings)
+
+waxwings <- split(waxwings, 
+                  lubridate::week(waxwings$date))
 
 waxwings <- lapply(waxwings, cleanup)
 
