@@ -13,20 +13,21 @@ library("ggthemes")
 #                                                          #
 ############################################################
 
-get_slice <- function(longitude){
-  print(longitude)
+get_slice <- function(longitude, year){
+  print(paste(year, longitude))
   gbifopts <- list(limit = 200000,
-                   year = 2016)
-  inatopts <- list(maxresults = 100000, year = 2016)
-  waxwings <- occ(query = "Bombycilla garrulus",
-                  from = c('gbif', 'inat', 'ebird'), 
+                   year = year)
+  waxwings <- occ(query = "Bombycilla",
+                  from = c('gbif'), 
                   gbifopts = gbifopts,
-                  inatopts = inatopts,
-                  geometry = c(longitude, - 90, longitude + 5, 90))
+                  geometry = c(longitude, - 90, 
+                               longitude + 1, 90))
   waxwings <- occ2df(waxwings)
 }
-longitudes <- seq(-180, 175, by = 5)
-waxwings <- lapply(longitudes, get_slice)
+longitudes <- seq(-180, 179, by = 1)
+years <- rep(2011:2016, length(longitudes))
+longitudes <- rep(longitudes,  6)
+waxwings <- map2(longitudes, years, get_slice)
 for (i in 1:length(waxwings)){
   waxwings[[i]]$latitude <- as.numeric(waxwings[[i]]$latitude)
   waxwings[[i]]$longitude <- as.numeric(waxwings[[i]]$longitude)
@@ -53,7 +54,7 @@ cleanup <- function(df){
     date_standardize("%Y-%m-%d") %>%
     date_missing()
 } 
-
+waxwings <- readr::read_csv("uncleaned_waxwings.csv")
 cleanup(waxwings)
 
 waxwings <- split(waxwings, 
