@@ -36,6 +36,7 @@ for (i in 1:length(waxwings)){
 waxwings <- bind_rows(waxwings)
 waxwings <- unique(waxwings)
 
+waxwings <- filter(waxwings, !is.na(name))
 readr::write_csv(waxwings, path = "uncleaned_waxwings.csv")
 ############################################################
 #                                                          #
@@ -55,10 +56,10 @@ cleanup <- function(df){
     date_missing()
 } 
 waxwings <- readr::read_csv("uncleaned_waxwings.csv")
-cleanup(waxwings)
+
 
 waxwings <- split(waxwings, 
-                  lubridate::week(waxwings$date))
+                  waxwings$date)
 
 waxwings <- lapply(waxwings, cleanup)
 
