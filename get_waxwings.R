@@ -16,11 +16,11 @@ get_slice <- function(longitude, year){
   waxwings <- occ(query = "Bombycilla",
                   from = c('gbif'), 
                   gbifopts = gbifopts,
-                  geometry = c(longitude, - 90, 
-                               longitude + 1, 90))
+                  geometry = c(longitude - 0.5, - 90, 
+                               longitude + 0.5, 90))
   waxwings <- occ2df(waxwings)
 }
-longitudes <- seq(-180, 179, by = 1)
+longitudes <- seq( -180, 179, by = 0.5)
 years <- rep(2011:2016, length(longitudes))
 longitudes <- rep(longitudes,  6)
 waxwings <- map2(longitudes, years, get_slice)
