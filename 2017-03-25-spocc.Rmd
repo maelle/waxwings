@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Mapping Bombycilla garrulus annual migration without Twitter"
+title: "Mapping waxwings annual migration without Twitter"
 comments: true
 ---
 ```{r setup, include=FALSE}
@@ -16,28 +16,32 @@ Recently a reader left a comment on this blog mentioning [his cool blog post](ht
 
 # Getting the occurrence data
 
-As mentioned above I got the data via `spocc`. I read the README of the Github repo and learnt that it's called `spocc` like *sp*ecies *occ*urrence data. So now I should never forget how many "c" there are in the word _occurrence_.
+As mentioned above I got the data via `spocc`. I read the README of the Github repo and learnt that it's called `spocc` like *sp*ecies *occ*urrence data. So now I should never forget how many "c" there are in the word _occurrence_. Now please send help for my remembering it has two "r".
 
-The `spocc` package interacts with so many data sources that I felt a bit overwhelmed. I guess ecologists are not often blessed with so much data. Note that I don't limit my query to the UK. Indeed, since seeing [this map](https://en.wikipedia.org/wiki/Bohemian_waxwing#/media/File:Bombycillagarrulusmap2.png) my interest for the bohemian waxwing became global.
+The `spocc` package interacts with so many data sources that I felt a bit overwhelmed. I guess ecologists are not often blessed with so much data. Note that I don't limit my query to the UK. Indeed, since seeing [this map](https://en.wikipedia.org/wiki/Bohemian_waxwing#/media/File:Bombycillagarrulusmap2.png) my interest for the bohemian waxwing became global. 
 
+I decided to use only data from GBIF, and to get data for different years and all 3 species of waxwings, which meant a lot of data so for getting it I sliced the Earth (I like how evil this sentence makes me sound, ah!). Note that I used overlapping slices because otherwise I didn't get data at the limits between slices. I guess I could have made my slices slightly less overlapping though.
 
-```{r, cache = TRUE}
+```r
 library("spocc")
-
-get_slice <- function(longitude){
-  print(longitude)
+library("dplyr")
+library("purrr")
+library("scrubr")
+get_slice <- function(longitude, year){
+  print(paste(year, longitude))
   gbifopts <- list(limit = 200000,
-                 year = 2016)
-inatopts <- list(maxresults = 100000, year = 2016)
-waxwings <- occ(query = "Bombycilla garrulus",
-                from = c('gbif', 'inat', 'ebird'), gbifopts = gbifopts,
-                inatopts = inatopts,
-                geometry = c(longitude, - 90, longitude + 10, 90))
-waxwings <- occ2df(waxwings)
+                   year = year)
+  waxwings <- occ(query = "Bombycilla",
+                  from = c('gbif'), 
+                  gbifopts = gbifopts,
+                  geometry = c(longitude - 0.5, - 90, 
+                               longitude + 0.5, 90))
+  waxwings <- occ2df(waxwings)
 }
-longitudes <- seq(-180, 170, by = 10)
-waxwings <- lapply(longitudes, get_slice)
-
+longitudes <- seq( -180, 179, by = 0.5)
+years <- rep(2011:2016, length(lo ngitudes))
+longitudes <- rep(longitudes,  6)
+waxwings <- map2(longitudes, years, get_slice)
 for (i in 1:length(waxwings)){
   waxwings[[i]]$latitude <- as.numeric(waxwings[[i]]$latitude)
   waxwings[[i]]$longitude <- as.numeric(waxwings[[i]]$longitude)
@@ -45,140 +49,74 @@ for (i in 1:length(waxwings)){
 
 waxwings <- bind_rows(waxwings)
 waxwings <- unique(waxwings)
-```
 
-I got a data.frame of `r nrow(waxwings)` rows. The provenance of the data was as following:
+waxwings <- filter(waxwings, !is.na(name))
+readr::write_csv(waxwings, path = "uncleaned_waxwings.csv")
 
-```{r}
-
-table(waxwings$prov) %>%
-broom::tidy() %>%
-  knitr::kable()
 
 ```
 
 # Cleaning the occurrence data
 
-Now because my MSc of ecology is far behind me (but still close to my heart!) I have no idea how to assess the quality of species occurrence data. And even if I did I would have been delighted by the discovery of another rOpenSci package, [`scrubr`](https://github.com/ropensci/scrubr), whose aim is to clean species occurrence records. 
+Now because my MSc of ecology is far behind me (but still close to my heart!) I have no idea how to assess the quality of species occurrence data. And even if I did I would have been delighted by the discovery of another rOpenSci package, [`scrubr`](https://github.com/ropensci/scrubr), whose aim is to clean species occurrence records. Because I had so much data, I cleaned each day separately, otherwise it was just too long and hard on my poor computer. Don't start thinking `scrubr` is slow, it isn't and it's getting faster by the minute [thanks to work by its maintainer](https://github.com/ropensci/scrubr/issues/26).
 
-```{r}
-library("purrr")
-library("dplyr")
-```
-
-
-```{r}
-library("scrubr")
-
-
-
-waxwings <- split(waxwings, lubridate::week(waxwings$date))
-
+```r
 cleanup <- function(df){
   print(df$date[1])
-  df %>%
-  coord_impossible() %>%
-  coord_incomplete() %>%
-  coord_unlikely() %>%
-  dedup() %>%
-  date_standardize("%Y-%m-%d") %>%
-  date_missing()
+  df <- df %>%
+    coord_impossible() %>%
+    coord_incomplete() %>%
+    coord_unlikely() 
+
+    if(nrow(df) > 1){
+    
+      df <- dedup(df)
+    }
+  df <- df %>%
+    date_standardize("%Y-%m-%d") %>%
+    date_missing()
+    return(df)
 } 
+waxwings <- readr::read_csv("uncleaned_waxwings.csv")
+
+
+waxwings <- split(waxwings, 
+                  waxwings$date)
 
 waxwings <- lapply(waxwings, cleanup)
 
-waxwings <- waxpwings %>%
-  bind_rows()
+waxwings <- bind_rows(waxwings)
 waxwings <- unique(waxwings)
 readr::write_csv(waxwings, path = "waxwings.csv")
 ```
 
-I removed the records with impossible, incomplete or unlikely coordinates (unlikely being e.g. a political centroid, impossible coordinates with a too high longitude), I also removed duplicate records and records without a data. This was so easy! I'd like the `scrubr` package to come clean my flat. Now, in real life, I'd probably be even stricter with data cleaning but for the scope of this blog post, using that package without any additionnal check was enough. After all this glorious data cleaning, I had `r nrow(waxwings)` records. 
-
-# Preparing the data a bit more
-
-Since I was interested in seasonal patterns of migration I used the month of observation.
-
-```{r}
-waxwings <- mutate(waxwings,
-                   month = as.factor(lubridate::month(date)))
-```
-
-# Making a first animated map
-
-```{r}
-#waxwings <- readr::read_csv("waxwings.csv")
-library("ggplot2")
-library("ggalt") 
-library("emojifont")
-load.emojifont('OpenSansEmoji.ttf')
-library("magick")
-library("ggmap")
-library("ggthemes")
-```
-For the map I used bits of Rob Briers' code, and my sort of usual workflow with `magick` and `emojifont` as seen in [this post](http://www.masalmon.eu/2017/02/18/complot/).
-
-```{r, cache = TRUE}
-wax_map <- map_data("world")
-wax_map <- wax_map[wax_map$region != "Antarctica",]
-p <- ggplot() +
-  geom_map(data=wax_map,
-           map=wax_map,
-           aes(x=long, y=lat, map_id=region),
-                    color="white", fill="#7f7f7f", size=0.05, alpha=1/4)
-p <- p +
-  theme_map() 
-p <- p +
-  geom_point(aes(longitude, latitude,
-                 col = lubridate::month(date)),
-             data = waxwings)
-p <- p +
-  ylim(0, 80)
-p + theme(legend.position = "none")
-```
-
-```{r}
-
-plot_month <- function(month_now,
-                       waxwings, wax_map){
-  month_waxwings <- dplyr::filter_(waxwings,
-                         lazyeval::interp(~ month == month_now))
-  
-p <- ggplot() + #ggmap(wax_map) +
-  geom_text(aes(longitude, latitude),
-             label = emoji("bird"),
-             data = month_waxwings,
-            family="OpenSansEmoji",
-            size = 7) +
-  theme_map()+
-    ggtitle(paste("month", month_now)) +
-    theme(plot.title = element_text(size = 40, face = "bold"))
-  outfil <- paste0("figs/waxwings_", stringr::str_pad(month_now, width = 2, pad = "0"), ".png")
-  ggsave(outfil, p, width=5, height=5)
-
-  outfil
-                       }
-
+```{r, eval = TRUE, echo = FALSE}
+waxwings <- readr::read_csv("waxwings.csv")
 
 
 ```
 
+I removed the records with impossible, incomplete or unlikely coordinates (unlikely being e.g. a political centroid, impossible coordinates with a too high longitude), I also removed duplicate records and records without a data. This was so easy! I'd like the `scrubr` package to come clean my flat, as a team with the [`janitor` package](https://github.com/sfirke/janitor). Now, in real life, I'd probably be even stricter with data cleaning but for the scope of this blog post, using that package without any additionnal check was enough. After all this glorious data cleaning, I had `r nrow(waxwings)` records. 
 
-```{r}
+# Exploring the data
 
-1:52 %>%
-  map(plot_month, waxwings = waxwings,
-      wax_map = wax_map) %>%
-  map(image_read) %>%
-  image_join() %>%
-  image_animate(fps=0.5) %>%
-  image_write("waxwings.gif")
+## Number of occurrences by species over time
 
-```
+Seasonality (fewer people where they breed)
 
-# Finding out where the birds live
+## Day-of-the-week effects
 
-At the beginning of this post I said I became fascinated with [this map](https://en.wikipedia.org/wiki/Bohemian_waxwing#/media/File:Bombycillagarrulusmap2.png). I'm pretty sure it was based on observational data (I'm a genius) and decided I would try reproducing it. The first step was defining the breeding and non-breeding seasons.
+More occurrence reports in the week-ends. Mention the bizday package I could have used for finer characterization in particular in the US (because taking into account different holidays in different countries, huh.)
+
+# Mapping the migrations!
+
+Animated maps
+
+replace ugly red points by bird emojis
+
+maybe try spatial smoothing by month... or mention it as a possible extension.
+
+maybe use a better projection.
 
 # Concluding
 

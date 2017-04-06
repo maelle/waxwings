@@ -4,7 +4,6 @@ library("magick")
 library("ggmap")
 library("ggthemes")
 library("dplyr")
-library("albersusa")
 waxwings <- readr::read_csv("waxwings.csv")
 waxwings <- filter(waxwings, name != "Bombycilla japonica",
                    longitude < 50)
@@ -84,8 +83,8 @@ cedrorum_l <- split(cedrorum, cedrorum$month)
 
 
 cedrorum_l %>%
-  map(plot_month_cedrorum, cedrorum = cedrorum) %>%
-  map(image_read) %>%
+  purrr::map(plot_month_cedrorum, cedrorum = cedrorum) %>%
+  purrr::map(image_read) %>%
   image_join() %>%
   image_animate(fps=1) %>%
   image_write("cedrorum.gif")
@@ -95,8 +94,8 @@ garrulus <- filter(waxwings,
 garrulus_l <- split(garrulus, garrulus$month)
 
 garrulus_l %>%
-  map(plot_month_cedrorum, cedrorum = garrulus) %>%
-  map(image_read) %>%
+  purrr::map(plot_month_cedrorum, cedrorum = garrulus) %>%
+  purrr::map(image_read) %>%
   image_join() %>%
   image_animate(fps=1) %>%
   image_write("garrulus.gif")
